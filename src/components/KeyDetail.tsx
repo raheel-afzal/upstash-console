@@ -234,6 +234,22 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
   }
 
   const renderTable = () => {
+    if (type === 'string') {
+      const parsed = parseNestedJson(value)
+      const isStructured = parsed !== null && typeof parsed === 'object'
+      if (isStructured) return <div className="table-area">{renderNestedValue(parsed)}</div>
+      return (
+        <table className="data-table">
+          <thead><tr><th style={{ width: 220 }}>Field</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr>
+              <td className="key-col">value</td>
+              <td className="val-col">{String(value ?? '')}</td>
+            </tr>
+          </tbody>
+        </table>
+      )
+    }
     if (type === 'hash') return renderHashTable()
     if ((type === 'list' || type === 'set') && Array.isArray(value)) {
       return (
@@ -264,7 +280,7 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
     return null
   }
 
-  const hasTable = type !== 'string'
+  const hasTable = true
 
   return (
     <div className="detail">
@@ -323,9 +339,7 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
               </div>
             )}
 
-            {hasTable && view === 'table' && (
-              <div className="table-area">{renderTable()}</div>
-            )}
+            {hasTable && view === 'table' && <div className="table-area">{renderTable()}</div>}
           </div>
         )}
 
