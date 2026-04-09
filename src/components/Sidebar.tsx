@@ -15,7 +15,7 @@ interface Props {
 export default function Sidebar({ allKeys, activeKey, onSelectKey, onRefresh, onShowAddKey }: Props) {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
+  const [selectedPrefix, setSelectedPrefix] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -28,18 +28,13 @@ export default function Sidebar({ allKeys, activeKey, onSelectKey, onRefresh, on
 
   const groups: KeyGroup[] = useMemo(() => groupKeys(filtered), [filtered])
 
-  const autoExpand = filtered.length <= 200
+  const effectiveSelectedPrefix = useMemo(() => {
+    if (selectedPrefix && groups.some(g => g.prefix === selectedPrefix)) return selectedPrefix
+    if (!groups.length) return null
+    return groups[0].prefix
+  }, [groups, selectedPrefix])
 
-  const toggle = (prefix: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      if (next.has(prefix)) next.delete(prefix)
-      else next.add(prefix)
-      return next
-    })
-  }
-
-  const isExpanded = (prefix: string) => autoExpand || expanded.has(prefix)
+  const selectedGroup = groups.find(g => g.prefix === effectiveSelectedPrefix) ?? null
 
   const typeCounts = (keys: KeyInfo[]): Record<string, number> => {
     const counts: Record<string, number> = {}
@@ -102,44 +97,56 @@ export default function Sidebar({ allKeys, activeKey, onSelectKey, onRefresh, on
             {allKeys.length ? 'No keys match filter' : 'No keys found'}
           </div>
         )}
-        {groups.map(g => {
-          const open = isExpanded(g.prefix)
-          const counts = typeCounts(g.keys)
-          return (
-            <div key={g.prefix} className="key-group">
-              <button className="group-header" onClick={() => toggle(g.prefix)}>
-                <svg
-                  className={`chevron ${open ? 'open' : ''}`}
-                  width="10" height="10" viewBox="0 0 10 10" fill="currentColor"
-                >
-                  <path d="M3 1l4 4-4 4" />
-                </svg>
-                <span className="group-name">{g.prefix}</span>
-                <span className="group-count">{g.keys.length}</span>
-                <span className="group-types">
-                  {Object.entries(counts).map(([t, c]) => (
-                    <span key={t} className={`type-micro ${t}`}>{TYPE_ABBR[t]}{c}</span>
-                  ))}
-                </span>
-              </button>
-              {open && (
-                <div className="group-keys">
-                  {g.keys.map(k => (
-                    <div
-                      key={k.key}
-                      className={`key-item ${activeKey === k.key ? 'active' : ''}`}
-                      onClick={() => onSelectKey(k.key)}
-                    >
-                      <div className={`type-icon ${k.type}`}>{TYPE_ABBR[k.type]}</div>
-                      <span className="key-item-name" title={k.key}>{k.key}</span>
-                      <span className="key-item-arrow">›</span>
-                    </div>
-                  ))}
-                </div>
+        {groups.length > 0 && (
+          <div className="sidebar-panels">
+            <div className="prefix-panel">
+              {groups.map(g => {
+                const counts = typeCounts(g.keys)
+                const isActive = g.prefix === effectiveSelectedPrefix
+                return (
+                  <button
+                    key={g.prefix}
+                    className={`group-header ${isActive ? 'active' : ''}`}
+                    onClick={() => setSelectedPrefix(g.prefix)}
+                  >
+                    <span className="group-name">{g.prefix}</span>
+                    <span className="group-count">{g.keys.length}</span>
+                    <span className="group-types">
+                      {Object.entries(counts).map(([t, c]) => (
+                        <span key={t} className={`type-micro ${t}`}>{TYPE_ABBR[t]}{c}</span>
+                      ))}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="keys-panel">
+              {selectedGroup ? (
+                <>
+                  <div className="keys-panel-header">
+                    <span className="keys-panel-title">{selectedGroup.prefix}</span>
+                    <span className="keys-panel-count">{selectedGroup.keys.length} keys</span>
+                  </div>
+                  <div className="keys-panel-list">
+                    {selectedGroup.keys.map(k => (
+                      <div
+                        key={k.key}
+                        className={`key-item ${activeKey === k.key ? 'active' : ''}`}
+                        onClick={() => onSelectKey(k.key)}
+                      >
+                        <div className={`type-icon ${k.type}`}>{TYPE_ABBR[k.type]}</div>
+                        <span className="key-item-name" title={k.key}>{k.key}</span>
+                        <span className="key-item-arrow">›</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="sidebar-empty">Select a prefix</div>
               )}
             </div>
-          )
-        })}
+          </div>
+        )}
       </div>
     </div>
   )

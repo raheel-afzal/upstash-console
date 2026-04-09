@@ -20,7 +20,7 @@
   --radius-lg: 10px;
   --mono: 'DM Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   --sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --sidebar-w: 340px;
+  --sidebar-w: 460px;
 }
 
 html, body, #root {
@@ -491,7 +491,7 @@ body { overflow: hidden; }
 
 .sidebar-list {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 4px;
 }
 
@@ -506,6 +506,33 @@ body { overflow: hidden; }
 
 .key-group {
   margin-bottom: 2px;
+}
+
+.sidebar-panels {
+  display: grid;
+  grid-template-columns: 42% 58%;
+  gap: 6px;
+  height: 100%;
+  min-height: 0;
+}
+
+.prefix-panel,
+.keys-panel {
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.prefix-panel {
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.keys-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .group-header {
@@ -523,6 +550,8 @@ body { overflow: hidden; }
 }
 
 .group-header:hover { background: var(--surface3); }
+.group-header.active { background: var(--teal-bg); }
+.group-header.active .group-name { color: var(--teal-text); }
 
 .chevron {
   color: var(--text3);
@@ -571,8 +600,33 @@ body { overflow: hidden; }
 .type-micro.set { background: #fce7f3; color: #9d174d; }
 .type-micro.zset { background: #ede9fe; color: #5b21b6; }
 
-.group-keys {
-  padding-left: 8px;
+.keys-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.keys-panel-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.keys-panel-count {
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.keys-panel-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
 }
 
 /* ── Key Items ─────────────────────────────────────────────────── */
@@ -946,6 +1000,7 @@ body { overflow: hidden; }
 
 /* ── Add Key Dialog ────────────────────────────────────────────── */
 
+/* make it centered */
 .overlay {
   position: fixed;
   inset: 0;
@@ -955,8 +1010,11 @@ body { overflow: hidden; }
 
 .add-key-panel {
   position: fixed;
-  right: 16px;
-  top: 56px;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  top: 50%;
+  transform: translate(-50%, -50%);
   width: 340px;
   background: var(--surface);
   border: 1px solid var(--border2);

@@ -15,14 +15,14 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
   const [editorText, setEditorText] = useState('')
   const [ttlEdit, setTtlEdit] = useState(false)
   const [ttlInput, setTtlInput] = useState('')
-  const [view, setView] = useState<'table' | 'json'>('table')
+  const [view, setView] = useState<'table' | 'json'>('json')
   const prevKey = useRef<string | null>(null)
 
   useEffect(() => {
     if (!keyInfo) return
     if (prevKey.current === keyInfo.key) return
     prevKey.current = keyInfo.key
-    setView('table')
+    setView('json')
     setTtlEdit(false)
     let cancelled = false
 
@@ -196,8 +196,8 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
           <div className="detail-body">
             {hasTable && (
               <div className="view-tabs">
-                <button className={`view-tab ${view === 'table' ? 'active' : ''}`} onClick={() => setView('table')}>Table</button>
                 <button className={`view-tab ${view === 'json' ? 'active' : ''}`} onClick={() => setView('json')}>JSON Editor</button>
+                <button className={`view-tab ${view === 'table' ? 'active' : ''}`} onClick={() => setView('table')}>Table</button>
               </div>
             )}
 
