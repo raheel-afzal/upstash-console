@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import type { KeyInfo } from '../lib/redis'
-import { getValue as fetchValue, redis, pipeline, saveValue as redisSave } from '../lib/redis'
+import { getValue as fetchValue, redis, saveValue as redisSave } from '../lib/redis'
 
 interface Props {
   keyInfo: KeyInfo | null
@@ -69,8 +69,29 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
     ? new Blob([value]).size
     : value ? new Blob([JSON.stringify(value)]).size : 0
 
+  const getHashEntries = (input: any): [string, string][] => {
+    if (!input) return []
+    if (Array.isArray(input)) {
+      const pairs: [string, string][] = []
+      for (let i = 0; i < input.length; i += 2) {
+        const field = input[i]
+        const fieldValue = input[i + 1]
+        if (field === undefined) continue
+        pairs.push([String(field), fieldValue === undefined ? '' : String(fieldValue)])
+      }
+      return pairs
+    }
+    if (typeof input === 'object') {
+      return Object.entries(input).map(([field, fieldValue]) => [field, String(fieldValue)])
+    }
+    return []
+  }
+
+  const hashEntries = type === 'hash' ? getHashEntries(value) : []
+
   const length = typeof value === 'string'
     ? value.length
+    : type === 'hash' ? hashEntries.length
     : Array.isArray(value) ? value.length
     : value ? Object.keys(value).length : 0
 
@@ -109,20 +130,26 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
     }
   }
 
+  const renderHashTable = () => {
+    if (type !== 'hash') return null
+    if (!hashEntries.length) return <div className="loading-row">No hash fields found.</div>
+    return (
+      <table className="data-table">
+        <thead><tr><th style={{ width: 220 }}>Field</th><th>Value</th></tr></thead>
+        <tbody>
+          {hashEntries.map(([field, fieldValue]) => (
+            <tr key={field}>
+              <td className="key-col">{field}</td>
+              <td className="val-col">{fieldValue}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  }
+
   const renderTable = () => {
-    if (type === 'hash' && value && typeof value === 'object' && !Array.isArray(value)) {
-      const entries = Object.entries(value)
-      return (
-        <table className="data-table">
-          <thead><tr><th style={{ width: 200 }}>Field</th><th>Value</th></tr></thead>
-          <tbody>
-            {entries.map(([f, v]) => (
-              <tr key={f}><td className="key-col">{f}</td><td className="val-col">{String(v)}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      )
-    }
+    if (type === 'hash') return renderHashTable()
     if ((type === 'list' || type === 'set') && Array.isArray(value)) {
       return (
         <table className="data-table">
