@@ -15,14 +15,14 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
   const [editorText, setEditorText] = useState('')
   const [ttlEdit, setTtlEdit] = useState(false)
   const [ttlInput, setTtlInput] = useState('')
-  const [view, setView] = useState<'table' | 'json'>('json')
+  const [view, setView] = useState<'table' | 'json'>('table')
   const prevKey = useRef<string | null>(null)
 
   useEffect(() => {
     if (!keyInfo) return
     if (prevKey.current === keyInfo.key) return
     prevKey.current = keyInfo.key
-    setView('json')
+    setView('table')
     setTtlEdit(false)
     let cancelled = false
 
@@ -89,6 +89,91 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
 
   const hashEntries = type === 'hash' ? getHashEntries(value) : []
 
+  const parseNestedJson = (input: any, depth = 0): any => {
+    if (depth > 8 || input === null || input === undefined) return input
+
+    if (typeof input === 'string') {
+      const trimmed = input.trim()
+      if (!trimmed) return input
+      const startsLikeJson =
+        trimmed.startsWith('{') ||
+        trimmed.startsWith('[') ||
+        trimmed.startsWith('"')
+      if (!startsLikeJson) return input
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (parsed === input) return input
+        return parseNestedJson(parsed, depth + 1)
+      } catch {
+        return input
+      }
+    }
+
+    if (Array.isArray(input)) {
+      return input.map(item => parseNestedJson(item, depth + 1))
+    }
+
+    if (typeof input === 'object') {
+      const out: Record<string, any> = {}
+      for (const [k, v] of Object.entries(input)) out[k] = parseNestedJson(v, depth + 1)
+      return out
+    }
+
+    return input
+  }
+
+  const renderNestedValue = (input: any, depth = 0): any => {
+    if (input === null) return <span className="key-col">null</span>
+    if (input === undefined) return <span className="key-col">undefined</span>
+
+    if (typeof input === 'string' || typeof input === 'number' || typeof input === 'boolean') {
+      return <span>{String(input)}</span>
+    }
+
+    if (Array.isArray(input)) {
+      if (!input.length) return <span className="key-col">[]</span>
+      return (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th style={{ width: 60, textAlign: 'right' }}>#</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {input.map((v, i) => (
+              <tr key={`${depth}-${i}`}>
+                <td className="idx">{i}</td>
+                <td className="val-col">{renderNestedValue(v, depth + 1)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )
+    }
+
+    const entries = Object.entries(input)
+    if (!entries.length) return <span className="key-col">{'{}'}</span>
+    return (
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th style={{ width: 200 }}>Field</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map(([k, v]) => (
+            <tr key={`${depth}-${k}`}>
+              <td className="key-col">{k}</td>
+              <td className="val-col">{renderNestedValue(v, depth + 1)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  }
+
   const length = typeof value === 'string'
     ? value.length
     : type === 'hash' ? hashEntries.length
@@ -140,7 +225,7 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
           {hashEntries.map(([field, fieldValue]) => (
             <tr key={field}>
               <td className="key-col">{field}</td>
-              <td className="val-col">{fieldValue}</td>
+              <td className="val-col">{renderNestedValue(parseNestedJson(fieldValue))}</td>
             </tr>
           ))}
         </tbody>
@@ -223,8 +308,8 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
           <div className="detail-body">
             {hasTable && (
               <div className="view-tabs">
-                <button className={`view-tab ${view === 'json' ? 'active' : ''}`} onClick={() => setView('json')}>JSON Editor</button>
                 <button className={`view-tab ${view === 'table' ? 'active' : ''}`} onClick={() => setView('table')}>Table</button>
+                <button className={`view-tab ${view === 'json' ? 'active' : ''}`} onClick={() => setView('json')}>JSON Editor</button>
               </div>
             )}
 
