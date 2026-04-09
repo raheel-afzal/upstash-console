@@ -17,6 +17,46 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
   const [ttlInput, setTtlInput] = useState('')
   const [view, setView] = useState<'table' | 'json'>('table')
   const prevKey = useRef<string | null>(null)
+  const TreeNode = useCallback(({ label, value: nodeVal, depth = 0 }: { label: string; value: any; depth?: number }) => {
+    const [open, setOpen] = useState(depth < 2)
+    const isObj = nodeVal !== null && typeof nodeVal === 'object' && !Array.isArray(nodeVal)
+    const isArr = Array.isArray(nodeVal)
+    const isExpandable = isObj || isArr
+
+    if (!isExpandable) {
+      const display = nodeVal === null ? 'null' : nodeVal === undefined ? 'undefined' : String(nodeVal)
+      const isLong = display.length > 120
+      return (
+        <div className="tree-row">
+          <span className="tree-key">{label}</span>
+          <span className={`tree-val ${isLong ? 'tree-val-long' : ''}`}>{display}</span>
+        </div>
+      )
+    }
+
+    const entries = isArr
+      ? nodeVal.map((v: any, i: number) => [`[${i}]`, v] as [string, any])
+      : Object.entries(nodeVal)
+    const count = entries.length
+    const typeLabel = isArr ? `Array(${count})` : `Object(${count})`
+
+    return (
+      <div className={`tree-node depth-${Math.min(depth, 4)}`}>
+        <button className="tree-toggle" onClick={() => setOpen(o => !o)}>
+          <svg className={`tree-chevron ${open ? 'open' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m9 6 6 6-6 6" /></svg>
+          <span className="tree-key">{label}</span>
+          <span className="tree-type-badge">{typeLabel}</span>
+        </button>
+        {open && (
+          <div className="tree-children">
+            {entries.map(([k, v]: [string, any]) => (
+              <TreeNode key={k} label={k} value={v} depth={depth + 1} />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }, [])
 
   useEffect(() => {
     if (!keyInfo) return
@@ -121,47 +161,6 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
 
     return input
   }
-
-  const TreeNode = useCallback(({ label, value: nodeVal, depth = 0 }: { label: string; value: any; depth?: number }) => {
-    const [open, setOpen] = useState(depth < 2)
-    const isObj = nodeVal !== null && typeof nodeVal === 'object' && !Array.isArray(nodeVal)
-    const isArr = Array.isArray(nodeVal)
-    const isExpandable = isObj || isArr
-
-    if (!isExpandable) {
-      const display = nodeVal === null ? 'null' : nodeVal === undefined ? 'undefined' : String(nodeVal)
-      const isLong = display.length > 120
-      return (
-        <div className="tree-row">
-          <span className="tree-key">{label}</span>
-          <span className={`tree-val ${isLong ? 'tree-val-long' : ''}`}>{display}</span>
-        </div>
-      )
-    }
-
-    const entries = isArr
-      ? nodeVal.map((v: any, i: number) => [`[${i}]`, v] as [string, any])
-      : Object.entries(nodeVal)
-    const count = entries.length
-    const typeLabel = isArr ? `Array(${count})` : `Object(${count})`
-
-    return (
-      <div className={`tree-node depth-${Math.min(depth, 4)}`}>
-        <button className="tree-toggle" onClick={() => setOpen(o => !o)}>
-          <svg className={`tree-chevron ${open ? 'open' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m9 6 6 6-6 6" /></svg>
-          <span className="tree-key">{label}</span>
-          <span className="tree-type-badge">{typeLabel}</span>
-        </button>
-        {open && (
-          <div className="tree-children">
-            {entries.map(([k, v]: [string, any]) => (
-              <TreeNode key={k} label={k} value={v} depth={depth + 1} />
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }, [])
 
   const length = typeof value === 'string'
     ? value.length
