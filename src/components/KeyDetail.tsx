@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import type { KeyInfo } from '../lib/redis'
 import { getValue as fetchValue, redis, saveValue as redisSave } from '../lib/redis'
 
@@ -122,57 +122,46 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
     return input
   }
 
-  const renderNestedValue = (input: any, depth = 0): any => {
-    if (input === null) return <span className="key-col">null</span>
-    if (input === undefined) return <span className="key-col">undefined</span>
+  const TreeNode = useCallback(({ label, value: nodeVal, depth = 0 }: { label: string; value: any; depth?: number }) => {
+    const [open, setOpen] = useState(depth < 2)
+    const isObj = nodeVal !== null && typeof nodeVal === 'object' && !Array.isArray(nodeVal)
+    const isArr = Array.isArray(nodeVal)
+    const isExpandable = isObj || isArr
 
-    if (typeof input === 'string' || typeof input === 'number' || typeof input === 'boolean') {
-      return <span>{String(input)}</span>
-    }
-
-    if (Array.isArray(input)) {
-      if (!input.length) return <span className="key-col">[]</span>
+    if (!isExpandable) {
+      const display = nodeVal === null ? 'null' : nodeVal === undefined ? 'undefined' : String(nodeVal)
+      const isLong = display.length > 120
       return (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th style={{ width: 60, textAlign: 'right' }}>#</th>
-              <th>Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {input.map((v, i) => (
-              <tr key={`${depth}-${i}`}>
-                <td className="idx">{i}</td>
-                <td className="val-col">{renderNestedValue(v, depth + 1)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tree-row">
+          <span className="tree-key">{label}</span>
+          <span className={`tree-val ${isLong ? 'tree-val-long' : ''}`}>{display}</span>
+        </div>
       )
     }
 
-    const entries = Object.entries(input)
-    if (!entries.length) return <span className="key-col">{'{}'}</span>
+    const entries = isArr
+      ? nodeVal.map((v: any, i: number) => [`[${i}]`, v] as [string, any])
+      : Object.entries(nodeVal)
+    const count = entries.length
+    const typeLabel = isArr ? `Array(${count})` : `Object(${count})`
+
     return (
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th style={{ width: 200 }}>Field</th>
-            <th>Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map(([k, v]) => (
-            <tr key={`${depth}-${k}`}>
-              <td className="key-col">{k}</td>
-              <td className="val-col">{renderNestedValue(v, depth + 1)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className={`tree-node depth-${Math.min(depth, 4)}`}>
+        <button className="tree-toggle" onClick={() => setOpen(o => !o)}>
+          <svg className={`tree-chevron ${open ? 'open' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m9 6 6 6-6 6" /></svg>
+          <span className="tree-key">{label}</span>
+          <span className="tree-type-badge">{typeLabel}</span>
+        </button>
+        {open && (
+          <div className="tree-children">
+            {entries.map(([k, v]: [string, any]) => (
+              <TreeNode key={k} label={k} value={v} depth={depth + 1} />
+            ))}
+          </div>
+        )}
+      </div>
     )
-  }
+  }, [])
 
   const length = typeof value === 'string'
     ? value.length
@@ -219,17 +208,11 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
     if (type !== 'hash') return null
     if (!hashEntries.length) return <div className="loading-row">No hash fields found.</div>
     return (
-      <table className="data-table">
-        <thead><tr><th style={{ width: 220 }}>Field</th><th>Value</th></tr></thead>
-        <tbody>
-          {hashEntries.map(([field, fieldValue]) => (
-            <tr key={field}>
-              <td className="key-col">{field}</td>
-              <td className="val-col">{renderNestedValue(parseNestedJson(fieldValue))}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="tree-root">
+        {hashEntries.map(([field, fieldValue]) => (
+          <TreeNode key={field} label={field} value={parseNestedJson(fieldValue)} depth={0} />
+        ))}
+      </div>
     )
   }
 
@@ -237,44 +220,46 @@ export default function KeyDetail({ keyInfo, onDeleted, onUpdated, onToast }: Pr
     if (type === 'string') {
       const parsed = parseNestedJson(value)
       const isStructured = parsed !== null && typeof parsed === 'object'
-      if (isStructured) return <div className="table-area">{renderNestedValue(parsed)}</div>
+      if (isStructured) {
+        const entries = Array.isArray(parsed)
+          ? parsed.map((v: any, i: number) => [`[${i}]`, v] as [string, any])
+          : Object.entries(parsed)
+        return (
+          <div className="tree-root">
+            {entries.map(([k, v]: [string, any]) => (
+              <TreeNode key={k} label={k} value={v} depth={0} />
+            ))}
+          </div>
+        )
+      }
       return (
-        <table className="data-table">
-          <thead><tr><th style={{ width: 220 }}>Field</th><th>Value</th></tr></thead>
-          <tbody>
-            <tr>
-              <td className="key-col">value</td>
-              <td className="val-col">{String(value ?? '')}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="tree-root">
+          <TreeNode label="value" value={String(value ?? '')} depth={0} />
+        </div>
       )
     }
     if (type === 'hash') return renderHashTable()
     if ((type === 'list' || type === 'set') && Array.isArray(value)) {
       return (
-        <table className="data-table">
-          <thead><tr><th style={{ width: 60, textAlign: 'right' }}>#</th><th>Value</th></tr></thead>
-          <tbody>
-            {value.map((v, i) => (
-              <tr key={i}><td className="idx">{i}</td><td className="val-col">{String(v)}</td></tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tree-root">
+          {value.map((v, i) => (
+            <TreeNode key={i} label={`[${i}]`} value={parseNestedJson(v)} depth={0} />
+          ))}
+        </div>
       )
     }
     if (type === 'zset' && Array.isArray(value)) {
       const pairs: [string, string][] = []
       for (let i = 0; i < value.length; i += 2) pairs.push([value[i], value[i + 1]])
       return (
-        <table className="data-table">
-          <thead><tr><th>Member</th><th style={{ width: 100 }}>Score</th></tr></thead>
-          <tbody>
-            {pairs.map(([m, s], i) => (
-              <tr key={i}><td className="val-col">{m}</td><td className="key-col">{s}</td></tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tree-root">
+          {pairs.map(([m, s], i) => (
+            <div key={i} className="tree-row">
+              <span className="tree-key">{m}</span>
+              <span className="tree-val tree-score">{s}</span>
+            </div>
+          ))}
+        </div>
       )
     }
     return null
