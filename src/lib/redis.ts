@@ -61,7 +61,7 @@ export async function scanAll(
   let cursor = '0'
   const keys: string[] = []
   do {
-    const res = await redis(['SCAN', cursor, 'MATCH', '*', 'COUNT', '200'])
+    const res = await redis(['SCAN', cursor, 'MATCH', '*', 'COUNT', '1000'])
     const next = res[0]
     const batch: string[] = res[1] || []
     keys.push(...batch)
